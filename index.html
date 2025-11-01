@@ -1,0 +1,680 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Weather App</title>
+    <!-- Load Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Load Inter font -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        /* Use Inter font as default */
+        body {
+            font-family: 'Inter', sans-serif;
+            /* Changed to 3s transition as requested */
+            transition: background 3s ease-in-out;
+            margin: 0;
+            height: 100vh;
+            /* Initial background set to Day as per your example */
+            background: linear-gradient(to top, #87CEEB, #ffffff);
+        }
+
+        /* --- REMOVED .night-sky and .day-sky classes --- */
+
+        /* --- New Chat Styles --- */
+        /* Hide scrollbar for chat messages, but still allow scrolling */
+        #chat-messages::-webkit-scrollbar {
+            width: 0;
+            background: transparent;
+        }
+        #chat-messages {
+            -ms-overflow-style: none; /* IE and Edge */
+            scrollbar-width: none; /* Firefox */
+        }
+    </style>
+</head>
+<!-- Set default background text color to dark to match the initial 'Day' gradient -->
+<body class="text-gray-900 flex items-center justify-center min-h-screen p-4">
+
+    <div class="w-full max-w-md">
+
+        <!-- Search Bar -->
+        <form id="search-form" class="flex w-full mb-4 rounded-lg shadow-lg">
+            <input id="search-input" type="text" placeholder="Enter city name..." class="flex-grow p-3 rounded-l-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-400">
+            <button type="submit" class="bg-blue-600 p-3 rounded-r-lg hover:bg-blue-700 transition-colors">
+                <!-- Search Icon -->
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+            </button>
+        </form>
+
+        <!-- Loader: Hidden by default -->
+        <div id="loader" class="hidden text-center p-6">
+            <svg class="animate-spin h-8 w-8 text-white mx-auto" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+            <p class="mt-2 text-lg">Fetching your location...</p>
+        </div>
+
+        <!-- Error Message: Hidden by default -->
+        <div id="error-message" class="hidden bg-red-600 p-4 rounded-lg shadow-lg text-center">
+            <h3 class="font-bold text-lg">Error</h3>
+            <p id="error-text"></p>
+        </div>
+
+        <!-- Weather Card: Hidden by default -->
+        <!-- Added hover:-translate-y-2 for the bounce effect -->
+        <div id="weather-card" class="hidden bg-white text-gray-800 rounded-xl shadow-2xl p-6 md:p-8 transition-all duration-300 ease-in-out transform hover:-translate-y-2">
+            
+            <!-- Location -->
+            <h2 id="location" class="text-3xl font-bold text-center mb-4">
+                <!-- Location Name -->
+            </h2>
+
+            <!-- Main Weather Display: Emoji + Temp -->
+            <div class="flex flex-col items-center text-center mb-6">
+                <span id="weather-emoji" class="text-8xl"></span>
+                <p id="temperature" class="text-7xl font-bold my-2">
+                    <!-- 24°C -->
+                </p>
+                <p id="weather-description" class="text-xl text-gray-600 capitalize">
+                    <!-- Description will go here -->
+                </p>
+            </div>
+
+            <!-- Details Grid -->
+            <div class="bg-gray-100 rounded-lg p-4">
+                <div class="grid grid-cols-3 gap-4 text-center">
+                    <!-- Feels Like -->
+                    <div class="detail-item">
+                        <span class="text-sm text-gray-500">Feels Like</span>
+                        <p id="feels-like" class="text-lg font-semibold">
+                            <!-- 25°C -->
+                        </p>
+                    </div>
+                    <!-- Humidity -->
+                    <div class="detail-item">
+                        <span class="text-sm text-gray-500">Humidity</span>
+                        <p id="humidity" class="text-lg font-semibold">
+                            <!-- 60% -->
+                        </p>
+                    </div>
+                    <!-- Wind -->
+                    <div class="detail-item">
+                        <span class="text-sm text-gray-500">Wind</span>
+                        <p id="wind-speed" class="text-lg font-semibold">
+                            <!-- 15 km/h -->
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Current Location Button -->
+    <button id="location-btn" class="fixed bottom-6 right-6 bg-gray-700 p-3 rounded-full shadow-lg hover:bg-gray-600 transition-all transform hover:scale-110">
+        <!-- Location Icon SVG -->
+        <svg id="location-icon" xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-white transition-colors duration-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+            <path stroke-linecap="round" stroke-linejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+        </svg>
+    </button>
+
+    <!-- --- New Chat Button --- -->
+    <button id="chat-btn-open" class="fixed bottom-6 left-6 bg-blue-600 p-3 rounded-full shadow-lg hover:bg-blue-700 transition-all transform hover:scale-110">
+        <!-- Chat Icon SVG -->
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+        </svg>
+    </button>
+
+    <!-- --- New Chat Modal --- -->
+    <div id="chat-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg h-[80vh] flex flex-col transition-all duration-300 transform scale-95 opacity-0" id="chat-window">
+            <!-- Chat Header -->
+            <div class="flex items-center justify-between p-4 border-b border-gray-200 bg-gradient-to-r from-blue-600 to-indigo-700 rounded-t-2xl">
+                <h3 class="text-2xl font-bold text-white">Chat with AI</h3>
+                <button id="chat-btn-close" class="text-white hover:text-gray-200 transition-colors">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                </button>
+            </div>
+
+            <!-- Chat Messages -->
+            <div id="chat-messages" class="flex-grow p-4 space-y-4 overflow-y-auto text-gray-900">
+                <!-- Bot Welcome Message -->
+                <div class="flex justify-start">
+                    <div class="bg-gray-200 text-gray-800 p-3 rounded-xl max-w-xs">
+                        <p>Hi there! How can I help you today? You can ask me about the weather or anything else. Please note that all queries are answered based on the currently displayed weather location.</p>
+                    </div>
+                </div>
+                <!-- Messages will be added here by JS -->
+            </div>
+
+            <!-- Typing Indicator -->
+            <div id="typing-indicator" class="hidden p-4 text-gray-500 italic">
+                <p>AI is typing...</p>
+            </div>
+
+            <!-- Chat Input -->
+            <form id="chat-form" class="p-4 border-t border-gray-200 bg-gray-50 rounded-b-2xl">
+                <div class="flex items-center space-x-2">
+                    <input id="chat-input" type="text" placeholder="Type your message..." class="flex-grow p-3 border border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <button type="submit" class="bg-blue-600 p-3 rounded-lg text-white hover:bg-blue-700 transition-colors">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+                        </svg>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+
+    <script>
+        // --- Weather App Logic ---
+
+        // --- !!! IMPORTANT !!! ---
+        // Get your OpenWeatherMap key from https://openweathermap.org/
+        const OPENWEATHER_API_KEY = "767e3ed19dcdf1d2825cd2b8e5d9d4a8"; 
+        // Get your Gemini API key from https://aistudio.google.com/
+        const GEMINI_API_KEY = "AIzaSyAUELxKs5veos18t4idtBZTIHM-4UdQ-EE"; 
+        
+        // Get references to all the DOM elements
+        const loader = document.getElementById('loader');
+        const weatherCard = document.getElementById('weather-card');
+        const errorMessage = document.getElementById('error-message');
+        const errorText = document.getElementById('error-text');
+        
+        const locationEl = document.getElementById('location');
+        const weatherEmojiEl = document.getElementById('weather-emoji');
+        const temperatureEl = document.getElementById('temperature');
+        const weatherDescriptionEl = document.getElementById('weather-description');
+        
+        const feelsLikeEl = document.getElementById('feels-like');
+        const humidityEl = document.getElementById('humidity');
+        const windSpeedEl = document.getElementById('wind-speed');
+
+        // New elements for search and location button
+        const searchForm = document.getElementById('search-form');
+        const searchInput = document.getElementById('search-input');
+        const locationBtn = document.getElementById('location-btn');
+        const locationIcon = document.getElementById('location-icon');
+
+
+        // --- Event Listeners ---
+
+        // Listen for search form submission
+        searchForm.addEventListener('submit', (e) => {
+            e.preventDefault(); // Prevent form from reloading the page
+            const city = searchInput.value.trim();
+            if (city) {
+                fetchWeatherByCity(city);
+                searchInput.value = ''; // Clear input after search
+            }
+        });
+
+        // Listen for current location button click
+        locationBtn.addEventListener('click', () => {
+            // Change icon color to blue to show activity
+            locationIcon.classList.remove('text-white');
+            locationIcon.classList.add('text-blue-400');
+            showLoader("Fetching your location...");
+            getLocation();
+        });
+
+
+        // --- Functions ---
+
+        /**
+         * 0. Show Loader
+         */
+        function showLoader(message) {
+            loader.querySelector('p').textContent = message;
+            loader.classList.remove('hidden');
+            weatherCard.classList.add('hidden');
+            errorMessage.classList.add('hidden');
+        }
+
+        /**
+         * 1. Get user's geolocation
+         */
+        function getLocation() {
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(onLocationSuccess, onLocationError);
+            } else {
+                showError("Geolocation is not supported by this browser.");
+            }
+        }
+
+        /**
+         * 2. Handle location success
+         */
+        function onLocationSuccess(position) {
+            const lat = position.coords.latitude;
+            const lon = position.coords.longitude;
+            fetchWeatherByCoords(lat, lon);
+        }
+
+
+
+        /**
+         * 3. Handle location error
+         */
+        function onLocationError(error) {
+            let message = "An unknown error occurred.";
+            // More specific error messages
+            switch (error.code) {
+                case error.PERMISSION_DENIED:
+                    message = "Please allow location access to see your local weather.";
+                    break;
+                case error.POSITION_UNAVAILABLE:
+                    message = "Your location information is unavailable.";
+                    break;
+                case error.TIMEOUT:
+                    message = "The request to get your location timed out.";
+                    break;
+            }
+            showError(message);
+        }
+
+        /**
+         * 4a. Fetch weather by City Name
+         */
+        async function fetchWeatherByCity(city) {
+            // Check if API key is entered
+            if (!OPENWEATHER_API_KEY) {
+                showError("Please add your OpenWeatherMap API key to the script.");
+                return;
+            }
+
+            showLoader(`Fetching weather for ${city}...`);
+            // Reset location icon color (in case it was active)
+            locationIcon.classList.remove('text-blue-400');
+            locationIcon.classList.add('text-white');
+
+            try {
+                const weatherApiUrl = `https://api.openweathermap.org/data/2.5/weather?q=${city}&appid=${OPENWEATHER_API_KEY}&units=metric`;
+                const weatherResponse = await fetch(weatherApiUrl);
+                if (!weatherResponse.ok) {
+                    throw new Error(`Could not find weather for "${city}".`);
+                }
+                const weatherData = await weatherResponse.json();
+                
+                // Create a locationData object that matches what updateUI expects
+                const locationData = { 
+                    name: weatherData.name, 
+                    country: weatherData.sys.country 
+                };
+                
+                updateUI(weatherData, locationData);
+
+            } catch (err) {
+                showError(err.message || "Could not fetch weather data.");
+            }
+        }
+
+
+        /**
+         * 4b. Fetch weather and location data by Coords
+         */
+        async function fetchWeatherByCoords(lat, lon) {
+            // Check if API key is entered
+            if (!OPENWEATHER_API_KEY) {
+                showError("Please add your OpenWeatherMap API key to the script.");
+                return;
+            }
+
+            try {
+                // Loader is already shown, just update text
+                loader.querySelector('p').textContent = 'Fetching weather data...';
+
+                // Fetch weather data
+                const weatherApiUrl = `https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&appid=${OPENWEATHER_API_KEY}&units=metric`;
+                const weatherResponse = await fetch(weatherApiUrl);
+                if (!weatherResponse.ok) throw new Error('Weather data not found.');
+                const weatherData = await weatherResponse.json();
+
+                // Fetch location name
+                const locationApiUrl = `https://api.openweathermap.org/geo/1.0/reverse?lat=${lat}&lon=${lon}&limit=1&appid=${OPENWEATHER_API_KEY}`;
+                const locationResponse = await fetch(locationApiUrl);
+                if (!locationResponse.ok) throw new Error('Location name not found.');
+                const locationData = await locationResponse.json();
+                
+                // Once both are fetched, update the UI
+                // OWM reverse geocoding returns an array, we take the first result
+                updateUI(weatherData, locationData[0]);
+
+            } catch (err) {
+                showError(err.message || "Could not fetch weather data.");
+            }
+        }
+
+        /**
+         * 5. Update the UI with the data
+         */
+        function updateUI(weatherData, locationData) {
+            // Hide loader and show the card
+            loader.classList.add('hidden');
+            weatherCard.classList.remove('hidden');
+            errorMessage.classList.add('hidden');
+
+            // Reset location icon color
+            locationIcon.classList.remove('text-blue-400');
+            locationIcon.classList.add('text-white');
+
+            const { main, weather, wind } = weatherData;
+            // const body = document.body; // No longer needed
+            
+            // --- REMOVED Day/Night Background Change logic ---
+            
+            // Get emoji and description
+            const { description, emoji } = getWeatherDetails(weather[0].id, weather[0].description);
+            
+            // Get location name
+            const locationName = `${locationData.name}, ${locationData.country}`;
+
+            // Populate the elements
+            locationEl.textContent = locationName;
+            weatherEmojiEl.textContent = emoji;
+            temperatureEl.textContent = `${Math.round(main.temp)}°C`;
+            weatherDescriptionEl.textContent = description;
+            
+            feelsLikeEl.textContent = `${Math.round(main.feels_like)}°C`;
+            humidityEl.textContent = `${main.humidity}%`;
+            windSpeedEl.textContent = `${(wind.speed * 3.6).toFixed(1)} km/h`;
+        }
+
+        /**
+         * 6. Show an error message
+         */
+        function showError(message) {
+            loader.classList.add('hidden');
+            weatherCard.classList.add('hidden');
+            errorText.textContent = message;
+            errorMessage.classList.remove('hidden');
+
+            // Reset location icon color
+            locationIcon.classList.remove('text-blue-400');
+            locationIcon.classList.add('text-white');
+        }
+
+        /**
+         * 7. Helper to map OpenWeatherMap codes to emoji and descriptions
+         * (Based on OWM Weather interpretation codes)
+         */
+        function getWeatherDetails(code, description) {
+            // We pass description through just to capitalize it
+            const capitalizedDescription = description.charAt(0).toUpperCase() + description.slice(1);
+            
+            if (code >= 200 && code <= 232) {
+                return { description: capitalizedDescription, emoji: ' thunderstorms' }; // Thunderstorm
+            } else if (code >= 300 && code <= 321) {
+                return { description: capitalizedDescription, emoji: '🌧️' }; // Drizzle
+            } else if (code >= 500 && code <= 504) {
+                return { description: capitalizedDescription, emoji: '🌧️' }; // Rain
+            } else if (code === 511) {
+                return { description: 'Freezing Rain', emoji: '🌨️' }; // Freezing Rain
+            } else if (code >= 520 && code <= 531) {
+                return { description: 'Shower Rain', emoji: '🌧️' }; // Shower Rain
+            } else if (code >= 600 && code <= 622) {
+                return { description: capitalizedDescription, emoji: '❄️' }; // Snow
+            } else if (code >= 701 && code <= 781) {
+                return { description: capitalizedDescription, emoji: '🌫️' }; // Mist, Fog, etc.
+            } else if (code === 800) {
+                return { description: 'Clear Sky', emoji: '☀️' }; // Clear sky (use sun for both day/night for simplicity)
+            } else if (code === 801) {
+                return { description: 'Few Clouds', emoji: '🌤️' }; // Few clouds
+            } else if (code === 802) {
+                return { description: 'Scattered Clouds', emoji: '☁️' }; // Scattered clouds
+            } else if (code === 803 || code === 804) {
+                return { description: capitalizedDescription, emoji: '☁️' }; // Broken or Overcast clouds
+            } else {
+                return { description: capitalizedDescription, emoji: '🤷' }; // Default
+            }
+        }
+
+        // --- End of Weather App Logic ---
+
+
+        // --- New Chatbot Logic ---
+
+        // Chat DOM Elements
+        const chatModal = document.getElementById('chat-modal');
+        const chatWindow = document.getElementById('chat-window');
+        const openChatBtn = document.getElementById('chat-btn-open');
+        /* FIX: Removed the extra dot '.' before getElementById */
+        const closeChatBtn = document.getElementById('chat-btn-close');
+        const chatForm = document.getElementById('chat-form');
+        const chatInput = document.getElementById('chat-input');
+        const chatMessages = document.getElementById('chat-messages');
+        const typingIndicator = document.getElementById('typing-indicator');
+
+        // Open Chat Modal
+        openChatBtn.addEventListener('click', () => {
+            chatModal.classList.remove('hidden');
+            // Animate in
+            setTimeout(() => {
+                chatWindow.classList.remove('scale-95', 'opacity-0');
+                chatWindow.classList.add('scale-100', 'opacity-100');
+            }, 10); // Short delay to allow display:flex to register
+        });
+
+        // Close Chat Modal
+        closeChatBtn.addEventListener('click', () => {
+            // Animate out
+            chatWindow.classList.remove('scale-100', 'opacity-100');
+            chatWindow.classList.add('scale-95', 'opacity-0');
+            setTimeout(() => {
+                chatModal.classList.add('hidden');
+            }, 300); // Wait for animation to finish
+        });
+
+        // Handle Chat Form Submission
+        chatForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const messageText = chatInput.value.trim();
+
+            if (messageText) {
+                // 1. Add user's message to chat
+                addMessage(messageText, 'user');
+                chatInput.value = '';
+
+                // 2. Show typing indicator
+                typingIndicator.classList.remove('hidden');
+                scrollToBottom();
+
+                // 3. Call the real Gemini API
+                callGeminiAPI(messageText);
+            }
+        });
+
+        /**
+         * Adds a new message bubble to the chat window
+         * @param {string} text - The message text
+         * @param {'user' | 'bot'} sender - Who sent the message
+         */
+        function addMessage(text, sender) {
+            const messageWrapper = document.createElement('div');
+            const messageBubble = document.createElement('div');
+            
+            messageBubble.classList.add('p-3', 'rounded-xl', 'max-w-xs');
+            messageBubble.textContent = text;
+
+            if (sender === 'user') {
+                // User message (right-aligned, blue)
+                messageWrapper.classList.add('flex', 'justify-end');
+                messageBubble.classList.add('bg-blue-600', 'text-white');
+            } else {
+                // Bot message (left-aligned, gray)
+                messageWrapper.classList.add('flex', 'justify-start');
+                messageBubble.classList.add('bg-gray-200', 'text-gray-800');
+            }
+
+            messageWrapper.appendChild(messageBubble);
+            chatMessages.appendChild(messageWrapper);
+            
+            // Scroll to the new message
+            scrollToBottom();
+        }
+
+        /**
+         * Scrolls the chat messages container to the bottom
+         */
+        function scrollToBottom() {
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+
+        /**
+         * 8. Call Gemini API
+         * @param {string} userMessage - The user's message.
+         */
+        async function callGeminiAPI(userMessage) {
+            if (!GEMINI_API_KEY) {
+                typingIndicator.classList.add('hidden');
+                addMessage("Please add your Gemini API key to the script to enable the AI chat.", 'bot');
+                return;
+            }
+
+            // Using the exact model from your cURL command
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`;
+            
+            // --- MODIFIED LOGIC ---
+            // Check if weather data is available first.
+            let temperatureDetails = "";
+            if (weatherCard.classList.contains('hidden')) {
+                // If weather card is hidden, we don't have "live location data"
+                typingIndicator.classList.add('hidden');
+                addMessage("Please search for a location or use the location button first. I need live weather data to answer your query.", 'bot');
+                return; // Stop execution
+            }
+
+            // If we're here, the card is visible, so get the data.
+            try {
+                const temp = document.getElementById('temperature').textContent;
+                const desc = document.getElementById('weather-description').textContent;
+                const location = document.getElementById('location').textContent;
+                temperatureDetails = `in ${location} it is ${temp} and ${desc}`;
+            } catch (e) {
+                // This catch is a fallback in case elements aren't ready
+                console.error("Could not read weather card details:", e);
+                typingIndicator.classList.add('hidden');
+                addMessage("I'm having trouble reading the current weather data. Please try searching for the location again.", 'bot');
+                return; // Stop execution
+            }
+            // --- END OF MODIFIED LOGIC ---
+
+            const prompt = `Based on the current temperature details (${temperatureDetails}), answer this user query: ${userMessage}`;
+
+            const payload = {
+                contents: [{
+                    parts: [{ "text": prompt }]
+                }]
+            };
+
+            // Implement fetch with exponential backoff
+            let response;
+            let retries = 0;
+            const maxRetries = 3;
+            let delay = 1000; // 1 second
+
+            while (retries < maxRetries) {
+                try {
+                    response = await fetch(apiUrl, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify(payload)
+                    });
+
+                    if (response.ok) {
+                        const result = await response.json();
+                        const candidate = result.candidates?.[0];
+                        
+                        if (candidate && candidate.content?.parts?.[0]?.text) {
+                            const aiText = candidate.content.parts[0].text;
+                            typingIndicator.classList.add('hidden');
+                            addMessage(aiText, 'bot');
+                            return; // Success, exit function
+                        } else {
+                            // Handle valid response but no text
+                            throw new Error("Invalid response structure from AI.");
+                        }
+                    } else if (response.status === 429 || response.status >= 500) {
+                        // Throttling or server error, wait and retry
+                        await new Promise(res => setTimeout(res, delay));
+                        delay *= 2; // Double the delay for next retry
+                        retries++;
+                    } else {
+                        // Other client-side error (e.g., 400 Bad Request), don't retry
+                        throw new Error(`API request failed with status ${response.status}: ${await response.text()}`);
+                    }
+                } catch (error) {
+                    // Network error or fetch failure
+                    if (retries >= maxRetries - 1) {
+                         // Last retry failed
+                         console.error('Error fetching from Gemini API:', error);
+                         typingIndicator.classList.add('hidden');
+                         addMessage(`Sorry, I'm having trouble connecting. Error: ${error.message}`, 'bot');
+                         return;
+                    }
+                     // Wait and retry
+                    await new Promise(res => setTimeout(res, delay));
+                    delay *= 2;
+                    retries++;
+                }
+            }
+            
+            // If loop finishes without returning, max retries were exceeded
+            typingIndicator.classList.add('hidden');
+            addMessage('Sorry, the AI service is currently unavailable. Please try again later.', 'bot');
+        }
+
+        // --- End of Chatbot Logic ---
+
+
+        // --- New Cycling Background Logic ---
+        
+        // 1. Create Gradient Array (using your examples)
+        // I've added a 'text' property to control readability
+        const gradients = [
+            { bg: 'linear-gradient(to top, #87CEEB, #ffffff)', text: 'dark' }, // Day
+            { bg: 'linear-gradient(to top, #FFD700, #FFA500)', text: 'dark' }, // Sunset
+            { bg: 'linear-gradient(to top, #FF4500, #2F4F4F)', text: 'light' }, // Dusk
+            { bg: 'linear-gradient(to top, #191970, #000000)', text: 'light' }, // Night
+            { bg: 'linear-gradient(to top, #2F4F4F, #87CEEB)', text: 'dark' }  // Dawn
+        ];
+
+        let gradientIndex = 0;
+        const bodyEl = document.body;
+
+        // 2. Cycle Through Gradients
+        setInterval(() => {
+            // Get the next gradient
+            gradientIndex = (gradientIndex + 1) % gradients.length;
+            const currentGradient = gradients[gradientIndex];
+            
+            // Update the background
+            bodyEl.style.background = currentGradient.bg;
+
+            // Update the text color for readability
+            if (currentGradient.text === 'dark') {
+                bodyEl.classList.remove('text-white');
+                bodyEl.classList.add('text-gray-900');
+            } else {
+                bodyEl.classList.remove('text-gray-900');
+                bodyEl.classList.add('text-white');
+            }
+        }, 10000); // 10 seconds
+
+    </script>
+</body>
+</html>
+
